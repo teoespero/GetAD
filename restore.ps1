@@ -1,8 +1,36 @@
 ﻿#################################################################################################
 # 
+# restore.ps1
+# Teo Espero (#000891230)
+# Cloud and Systems Administration (BS)
+# Western Governors University
+# Task 2
+#          Objectives #1:
+#          1. Create an Active Directory organizational unit (OU) named “finance.”
+#          2. Import the financePersonnel.csv file (found in the “Requirements2” directory) 
+#             into your Active Directory domain and directly into the finance OU. Be sure to 
+#             include the following properties:
+#                    
+#                    - First Name
+#                    - Last Name
+#                    - Display Name (First Name + Last Name, including a space between)
+#                    - Postal Code
+#                    - Office Phone
+#                    - Mobile Phone
+#
+#          Objectives #2:
+#          1. Create a new database on the UCERTIFY3 SQL server instance called “ClientDB.”
+#          2. Create a new table and name it “Client_A_Contacts.” Add this table to 
+#             your new database.
+#          3. Insert the data from the attached “NewClientData.csv” file (found in the 
+#             “Requirements2” folder) into the table created in part B
+#################################################################################################
 
 
-function task1(){
+#################################################################################################
+## This function is created to accomplish objective #1
+
+function objectiveOne(){
 
     $currPath = Get-Location
     $fileName = "financePersonnel.csv"
@@ -56,6 +84,75 @@ function task1(){
     }
 }
 
+#################################################################################################
+## This function is created to accomplish objective #2
+
+function objectiveTwo(){
+
+    ## find our path
+
+    $currPath = Get-Location
+    $sqlCodeFileName = "clients.sql"
+    $csvFileName = "NewClientData.csv"
+
+    ## Write-Host $currPath"\"$sqlCodeFileName
+    ## Write-Host $currPath"\"$csvFileName
+
+    
+
+    ## load and register the SQL Server snap-ins and manageability assemblies
+
+    Import-Module SQLPS -DisableNameChecking -Force
+
+    ## create our object to connect the local SQL server
+
+    ## get the servername
+
+    $computerName = ".\UCERTIFY3"
+    $serverName = New-Object -TypeName Microsoft.sqlserver.management.smo.server -ArgumentList $computerName
+    $myDB = New-Object Microsoft.sqlserver.management.smo.database -ArgumentList $serverName, ClientDB
+    $myDB.create()
+    Invoke-Sqlcmd -ServerInstance $computerName -Database ClientDB -InputFile $currPath"\"$sqlCodeFileName
+
+    ## table
+
+    $myTable = 'dbo.Client_A_Contacts'
+    $myDB = 'ClientDB'
+
+    Import-Csv $currPath"\"$csvFileName | `
+        ForEach-Object { Invoke-Sqlcmd -Database $myDB -ServerInstance .\UCERTIFY3 -Query `
+            "insert into $myTable (`
+                firstname,`
+	            lastname,`
+	            city,`
+	            county,`
+	            zip,`
+	            officePhone,`
+	            mobilePhone`
+            )`
+            values(`
+                 '$($_.first_name)',`
+                 '$($_.last_name)',`
+                 '$($_.city)',`
+                 '$($_.county)',`
+                 '$($_.zip)',`
+                 '$($_.officePhone)',`
+                 '$($_.mobilePhone)'`
+            )"
+        }
+
+}
+
+
+#################################################################################################
 ## Main Program
 
-task1
+try {
+    $theCurrPath = Get-Location
+    objectiveOne
+    objectiveTwo
+    Set-Location $theCurrPath
+}
+catch [System.OutOfMemoryException] {
+    "An error occured that could not be resolved."
+}
